@@ -17,7 +17,3 @@
 	path = deps/libsrtp
 	url = https://github.com/cisco/libsrtp.git
 	shallow = true
-[submodule "deps/xlang"]
-	path = deps/xlang
-	url = https://github.com/xlang-foundation/xlang.git
-	branch = main
