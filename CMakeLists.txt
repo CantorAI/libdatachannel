@@ -352,6 +352,11 @@ target_link_libraries(datachannel PRIVATE
 	Usrsctp::Usrsctp
 	$<BUILD_INTERFACE:plog::plog>)
 
+if (MSVC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_link_libraries(datachannel PRIVATE msvcrtd.lib)
+endif()
+
+
 target_include_directories(datachannel-static PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
@@ -368,6 +373,14 @@ if(WIN32)
 	target_link_libraries(datachannel PUBLIC ws2_32) # winsock2
 	target_link_libraries(datachannel-static PUBLIC ws2_32) # winsock2
 endif()
+
+if (MSVC)
+    target_link_libraries(datachannel PRIVATE
+        ucrt.lib
+        vcruntime.lib
+        msvcrt.lib)
+endif()
+
 
 if (NO_WEBSOCKET)
 	target_compile_definitions(datachannel PUBLIC RTC_ENABLE_WEBSOCKET=0)
@@ -593,9 +606,6 @@ if(NOT NO_TESTS)
 	target_link_libraries(datachannel-benchmark datachannel Threads::Threads)
 endif()
 
-if(USE_XLANG)
-	add_subdirectory(deps/xlang)
-endif()
 
 # Examples
 if(NOT NO_EXAMPLES)
