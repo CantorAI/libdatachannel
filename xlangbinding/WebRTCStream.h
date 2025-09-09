@@ -48,6 +48,7 @@ public:
 		APISET().AddFunc<4>("PushFrame", &WebRTCStream::PushFrameAPI);
 		APISET().AddFunc<0>("CreatePeer", &WebRTCStream::CreatePeerAPI);
 		APISET().AddFunc<2>("HandleOffer", &WebRTCStream::HandleOfferAPI);
+	    APISET().AddFunc<2>("HandleOfferSync", &WebRTCStream::HandleOfferSyncAPI);
 		APISET().AddFunc<2>("HandleCandidate", &WebRTCStream::HandleCandidateAPI);
 
 		// Events (user subscribes in XLang)
@@ -75,6 +76,8 @@ public:
 	std::shared_ptr<rtc::PeerConnection> createPeer();
 
 	// Handle signaling from browser
+	std::string WebRTCStream::handleOfferSync(std::shared_ptr<rtc::PeerConnection> pc,
+	                                          const std::string &sdp); 
 	void handleOffer(std::shared_ptr<rtc::PeerConnection> pc, const std::string &sdp);
 	void handleCandidate(std::shared_ptr<rtc::PeerConnection> pc, const std::string &candidate);
 
@@ -96,6 +99,10 @@ public: //APIS
 		auto pc = createPeer();
 		// wrap pointer as opaque object for XLang
 		return (uintptr_t)pc.get();
+	}
+	std::string WebRTCStream::HandleOfferSyncAPI(unsigned long long pcPtr, std::string sdp) {
+		auto pc = (rtc::PeerConnection *)pcPtr;
+		return handleOfferSync(std::shared_ptr<rtc::PeerConnection>(pc, [](auto *) {}), sdp);
 	}
 
 	void HandleOfferAPI(unsigned long long pcPtr, std::string sdp) {

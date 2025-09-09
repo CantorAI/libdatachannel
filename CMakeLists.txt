@@ -6,6 +6,18 @@ set(PROJECT_DESCRIPTION "C/C++ WebRTC network library featuring Data Channels, M
 
 include(GNUInstallDirs)
 
+
+# Build libdatachannel as DLL
+set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+
+# Keep dependencies static (avoids usrsctp_import.lib problem)
+set(BUILD_SHARED_DEPS_LIBS OFF CACHE BOOL "" FORCE)
+set(sctp_build_shared_lib OFF CACHE BOOL "" FORCE)
+
+set(NO_TESTS ON CACHE BOOL "" FORCE)
+set(NO_EXAMPLES ON CACHE BOOL "" FORCE)
+
+
 # Options
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(BUILD_SHARED_DEPS_LIBS "Build submodules as shared libraries" OFF)
@@ -58,7 +70,19 @@ if(USE_XLANG)
     set(xlang_sdk_folder "${XLANG_INCLUDE_DIR}")
     include_directories(${xlang_sdk_folder})
     file(GLOB XLANG_API_SRC "${xlang_sdk_folder}/value.cpp")
-	file(GLOB XLANG_BIND_SRC "${CMAKE_CURRENT_SOURCE_DIR}/xlangbinding/*.cpp")
+    file(GLOB XLANG_BIND_SRC "${CMAKE_CURRENT_SOURCE_DIR}/xlangbinding/*.cpp")
+
+    if(WIN32)
+        if(NOT DEFINED OPENSSL_ROOT_DIR)
+            # Get the parent folder of the XLang SDK include path
+            get_filename_component(XLANG_PARENT "${xlang_sdk_folder}/.." ABSOLUTE)
+            set(OPENSSL_ROOT_DIR "${XLANG_PARENT}/ThirdParty/OpenSSL/Win64")
+        endif()
+
+        set(OPENSSL_INCLUDE_DIR "${OPENSSL_ROOT_DIR}/include")
+        set(OPENSSL_CRYPTO_LIBRARY "${OPENSSL_ROOT_DIR}/lib/libcrypto.lib")
+        set(OPENSSL_SSL_LIBRARY "${OPENSSL_ROOT_DIR}/lib/libssl.lib")
+    endif()
 endif()
 
 
@@ -352,10 +376,9 @@ target_link_libraries(datachannel PRIVATE
 	Usrsctp::Usrsctp
 	$<BUILD_INTERFACE:plog::plog>)
 
-if (MSVC AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+if (MSVC1 AND CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_link_libraries(datachannel PRIVATE msvcrtd.lib)
 endif()
-
 
 target_include_directories(datachannel-static PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -374,7 +397,7 @@ if(WIN32)
 	target_link_libraries(datachannel-static PUBLIC ws2_32) # winsock2
 endif()
 
-if (MSVC)
+if (MSVC1)
     target_link_libraries(datachannel PRIVATE
         ucrt.lib
         vcruntime.lib
@@ -559,11 +582,14 @@ write_basic_package_version_file(
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
+
 # Export config and version files
 install(FILES
 	${CMAKE_BINARY_DIR}/LibDataChannelConfig.cmake
 	${CMAKE_BINARY_DIR}/LibDataChannelConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LibDataChannel)
+
+
 
 # Tests
 if(NOT NO_TESTS)
