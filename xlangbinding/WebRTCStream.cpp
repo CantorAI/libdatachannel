@@ -1,7 +1,19 @@
+/*
+Copyright (C) 2025 The XLang Foundation
+Licensed under the Apache License, Version 2.0 (the "License");
+You may not use this file except in compliance with the License.
+You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*/
+
+
 #include "WebRTCStream.h"
 #include <iostream>
 
-WebRTCStream::WebRTCStream() {}
+namespace X {
+
 
 void WebRTCStream::addChannel(const std::string &id, const std::string &kind,
                               const std::string &codec, size_t maxFrames) {
@@ -25,6 +37,9 @@ void WebRTCStream::pushFrame(const std::string& channelId,
     std::lock_guard<std::mutex> lock(ch->mutex);
     if (ch->buffer.size() >= ch->maxFrames) ch->buffer.pop_front();
     ch->buffer.push_back({ data, isKeyframe, ts });
+
+	// signal worker to broadcast
+	cv.notify_one();
 }
 
 std::shared_ptr<rtc::PeerConnection> WebRTCStream::createPeer() {
@@ -36,13 +51,23 @@ std::shared_ptr<rtc::PeerConnection> WebRTCStream::createPeer() {
 
 	for (auto &kv : channels) {
 		auto &ch = kv.second;
+
+		// Create track dynamically based on kind
+		std::shared_ptr<rtc::Track> track;
 		if (ch->kind == "video") {
-			auto track =
-			    pc->addTrack(rtc::Description::Video(ch->id, rtc::Description::Direction::SendOnly));
-			client.tracks[ch->id] = track;
+			track = pc->addTrack(
+			    rtc::Description::Video(ch->id, rtc::Description::Direction::SendOnly));
 		} else if (ch->kind == "audio") {
-			auto track =
-			    pc->addTrack(rtc::Description::Audio(ch->id, rtc::Description::Direction::SendOnly));
+			track = pc->addTrack(
+			    rtc::Description::Audio(ch->id, rtc::Description::Direction::SendOnly));
+		} else {
+			// For other types (e.g. "data"), fallback
+			auto dc = pc->createDataChannel(ch->id);
+			// (optional) hook onMessage here
+			continue; // no track entry for data
+		}
+
+		if (track) {
 			client.tracks[ch->id] = track;
 		}
 	}
@@ -99,15 +124,20 @@ void WebRTCStream::broadcast() {
 }
 
 
-// === Dummy hooks ===
-void WebRTCStream::onLocalDescription(const std::string& sdpType,
-    const std::string& sdp) {
-    // Replace with REST response
-    std::cout << "[Dummy] LocalDescription type=" << sdpType
-        << " sdp=" << sdp.substr(0, 50) << "...\n";
+void WebRTCStream::onLocalDescription(const std::string &sdpType, const std::string &sdp) {
+	X::ARGS args(2);
+	args.push_back(sdpType);
+	args.push_back(sdp);
+	X::KWARGS kp_dummy;
+	Fire(0, args, kp_dummy);
+
 }
 
-void WebRTCStream::onLocalCandidate(const std::string& candidate) {
-    // Replace with REST response
-    std::cout << "[Dummy] LocalCandidate: " << candidate << "\n";
+void WebRTCStream::onLocalCandidate(const std::string &candidate) {
+	X::ARGS args(1);
+	args.push_back(candidate);
+	X::KWARGS kp_dummy;
+	Fire(1, args, kp_dummy);
 }
+
+} // namespace X

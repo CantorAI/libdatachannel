@@ -16,6 +16,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #include <rtc/rtc.hpp>
 #include <string>
 #include "singleton.h"
+#include "WebRTCStream.h"
 
 namespace X {
 namespace LibDataChannel {
@@ -54,6 +55,7 @@ class Manager : public Singleton<Manager> {
 		// Set default ICE servers/options
 		APISET().AddRTFunc<1>("setDefaultOptions", &Manager::SetDefaultOptions);
 		APISET().AddClass<0, DataChannel>("DataChannel");
+	    APISET().AddClass<0, WebRTCStream>("WebRTCStream");
 	END_PACKAGE
 
 public:
