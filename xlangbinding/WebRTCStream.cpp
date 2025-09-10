@@ -58,9 +58,19 @@ std::shared_ptr<rtc::PeerConnection> WebRTCStream::createPeer() {
 			if (ch->kind == "video") {
 				track = pc->addTrack(
 				    rtc::Description::Video(ch->id, rtc::Description::Direction::SendOnly));
+				track->onOpen([id = ch->id]() 
+					{ 
+						std::cout << "Track " << id << " is now open\n"; 
+					}
+				);
 			} else if (ch->kind == "audio") {
 				track = pc->addTrack(
 				    rtc::Description::Audio(ch->id, rtc::Description::Direction::SendOnly));
+				track->onOpen([id = ch->id]() 
+					{ 
+						std::cout << "Track " << id << " is now open\n"; 
+					}
+				);
 			} else {
 				auto dc = pc->createDataChannel(ch->id);
 				continue;
