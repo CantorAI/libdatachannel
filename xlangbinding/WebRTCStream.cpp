@@ -75,6 +75,12 @@ std::shared_ptr<rtc::PeerConnection> WebRTCStream::createPeer() {
 			std::lock_guard<std::mutex> lock(clientMutex);
 			clients.push_back(std::move(client));
 		}
+		pc->onStateChange([this](rtc::PeerConnection::State state) {
+			std::cout << "Peer state = " << (int)state << "\n";
+			if (state == rtc::PeerConnection::State::Connected) {
+				// safe to broadcast
+			}
+		});
 
 		pc->onLocalDescription([this](rtc::Description desc) {
 			try {
@@ -159,7 +165,10 @@ void WebRTCStream::broadcast() {
 
 					auto it = client.tracks.find(ch->id);
 					if (it != client.tracks.end()) {
-						it->second->send(data);
+						auto &track = it->second;
+						if (track && track->isOpen()) {
+							track->send(data);
+						}
 					}
 				} catch (const std::exception &e) {
 					std::cerr << "broadcast send error: " << e.what() << std::endl;
