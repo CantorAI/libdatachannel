@@ -56,21 +56,31 @@ std::shared_ptr<rtc::PeerConnection> WebRTCStream::createPeer() {
 
 			std::shared_ptr<rtc::Track> track;
 			if (ch->kind == "video") {
-				track = pc->addTrack(
-				    rtc::Description::Video(ch->id, rtc::Description::Direction::SendOnly));
-				track->onOpen([id = ch->id]() 
-					{ 
-						std::cout << "Track " << id << " is now open\n"; 
-					}
-				);
+				//rtc::Description::Video desc(ch->id, rtc::Description::Direction::SendOnly);
+				//rtc::Description::Video desc("0", rtc::Description::Direction::SendOnly);
+				rtc::Description::Video desc("video", rtc::Description::Direction::SendOnly);
+
+				// Pick one codec the browser supports. Chrome/Edge/Safari all support VP8,
+				// and most support H264. You can add multiple if you want.
+				//desc.addVP8Codec(96);             // PT=96, standard dynamic payload
+				//desc.addH264Codec(102, "42e01f"); // PT=102, H.264 baseline profile
+				desc.addH264Codec(109, "42e01f"); // baseline profile
+				//desc.addH264Codec(96, "42e01f"); // baseline profile
+				desc.addSSRC(123456, "video-send");
+				auto track = pc->addTrack(desc);
+
+				track->onOpen(
+				    [id = ch->id]() { std::cout << "Video track " << id << " is now open\n"; });
+				client.tracks[ch->id] = track;
+
 			} else if (ch->kind == "audio") {
-				track = pc->addTrack(
-				    rtc::Description::Audio(ch->id, rtc::Description::Direction::SendOnly));
-				track->onOpen([id = ch->id]() 
-					{ 
-						std::cout << "Track " << id << " is now open\n"; 
-					}
-				);
+				//rtc::Description::Audio desc(ch->id, rtc::Description::Direction::SendOnly);
+				rtc::Description::Audio desc("1", rtc::Description::Direction::SendOnly);
+				desc.addOpusCodec(111); // PT=111 is the usual for Opus
+				auto track = pc->addTrack(desc);
+				track->onOpen(
+				    [id = ch->id]() { std::cout << "Audio track " << id << " is now open\n"; });
+				client.tracks[ch->id] = track;
 			} else {
 				auto dc = pc->createDataChannel(ch->id);
 				continue;
@@ -178,6 +188,7 @@ void WebRTCStream::broadcast() {
 						auto &track = it->second;
 						if (track && track->isOpen()) {
 							track->send(data);
+
 						}
 					}
 				} catch (const std::exception &e) {
