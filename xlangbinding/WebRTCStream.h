@@ -73,10 +73,12 @@ public:
 	               uint64_t ts);
 
 	// Create new PeerConnection for a client
+	std::shared_ptr<rtc::PeerConnection> createPeer2();
 	std::shared_ptr<rtc::PeerConnection> createPeer();
-
 	// Handle signaling from browser
 	std::string WebRTCStream::handleOfferSync(std::shared_ptr<rtc::PeerConnection> pc,
+	                                          const std::string &sdp); 
+	std::string WebRTCStream::handleOfferSync2(std::shared_ptr<rtc::PeerConnection> pc,
 	                                          const std::string &sdp); 
 	void handleOffer(std::shared_ptr<rtc::PeerConnection> pc, const std::string &sdp);
 	void handleCandidate(std::shared_ptr<rtc::PeerConnection> pc, const std::string &candidate);
