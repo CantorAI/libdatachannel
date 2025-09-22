@@ -38,6 +38,12 @@ struct MediaChannel {
 	std::deque<EncodedFrame> buffer; // ring buffer
 	std::mutex mutex;
 	size_t maxFrames;
+
+	 // cache SPS/PPS/IDR
+	std::vector<uint8_t> sps;
+	std::vector<uint8_t> pps;
+	std::vector<uint8_t> idr;
+	bool gotIdr = false;
 };
 
 class WebRTCStream {
@@ -71,7 +77,8 @@ public:
 	// Push frame into channel
 	void pushFrame(const std::string &channelId, const std::vector<uint8_t> &data, bool isKeyframe,
 	               uint64_t ts);
-
+	void pushFrame2(const std::string &channelId, const std::vector<uint8_t> &data, bool isKeyframe,
+	               uint64_t ts);
 	// Create new PeerConnection for a client
 	std::shared_ptr<rtc::PeerConnection> createPeer2();
 	std::shared_ptr<rtc::PeerConnection> createPeer();
@@ -125,8 +132,8 @@ private:
 
 	// Broadcast latest frame from each channel to all clients
 	void broadcast();
-
-	void loop() {
+	void broadcast2();
+	void loop1() {
 		while (running) {
 			std::unique_lock<std::mutex> lock(cvMutex);
 			cv.wait(lock, [this] { return !running || hasFramesReady(); });
@@ -136,7 +143,36 @@ private:
 			broadcast();
 		}
 	}
+	void loop2() {
+		while (running) {
+			std::unique_lock<std::mutex> lock(cvMutex);
+			cv.wait(lock, [this] { return !running || hasFramesReady(); });
+			if (!running)
+				break;
 
+			for (auto &kv : channels) {
+				auto &ch = kv.second;
+				EncodedFrame latest;
+				{
+					std::lock_guard<std::mutex> chlock(ch->mutex);
+					if (!ch->buffer.empty())
+						latest = ch->buffer.back();
+				}
+				if (!latest.data.empty()) {
+					if (ch->kind == "data") {
+						// 🚀 Send raw frame over DataChannel
+						broadcastData(ch->id, latest.data);
+					} else {
+						// fallback: RTP-based media
+						broadcast();
+					}
+				}
+			}
+		}
+	}
+
+	// Replace your current loop() with this FIFO version
+	void loop();
 	bool hasFramesReady() {
 		for (auto &kv : channels) {
 			auto &ch = kv.second;
@@ -146,6 +182,7 @@ private:
 		}
 		return false;
 	}
+	bool broadcastData(const std::string &channelId, const std::vector<uint8_t> &data);
 
 private:
 	std::map<std::string, std::shared_ptr<MediaChannel>> channels;
@@ -153,6 +190,7 @@ private:
 	struct Client {
 		std::shared_ptr<rtc::PeerConnection> pc;
 		std::map<std::string, std::shared_ptr<rtc::Track>> tracks; // channelId -> track
+		std::map<std::string, std::shared_ptr<rtc::DataChannel>> dataChannels; // data channels
 	};
 	std::vector<Client> clients;
 	std::mutex clientMutex;
