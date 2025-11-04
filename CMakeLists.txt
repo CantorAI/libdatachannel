@@ -509,6 +509,55 @@ if(WARNINGS_AS_ERRORS)
 	endif()
 endif()
 
+
+# ============================================================================
+# POST-BUILD COPY COMMANDS - Add this section after your library target
+# ============================================================================
+
+# Define the output directory: ../lib/libdatachannel relative to CMakeLists.txt
+set(OUTPUT_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../lib/libdatachannel")
+
+# Create the output directory if it doesn't exist
+file(MAKE_DIRECTORY ${OUTPUT_LIB_DIR})
+
+# Add post-build commands to copy artifacts
+add_custom_command(TARGET datachannel POST_BUILD
+    COMMENT "Copying datachannel library artifacts to ${OUTPUT_LIB_DIR}"
+    
+    # 1. Copy the main library file
+    #    - Windows: datachannel.dll
+    #    - Linux: libdatachannel.so
+    #    - macOS: libdatachannel.dylib
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:datachannel>
+        ${OUTPUT_LIB_DIR}/$<TARGET_FILE_NAME:datachannel>
+    
+    # 2. Copy import library (.lib) on Windows (for linking)
+    #    Only exists on Windows for shared libraries
+    COMMAND ${CMAKE_COMMAND} -E $<IF:$<PLATFORM_ID:Windows>,copy_if_different,true>
+        $<$<PLATFORM_ID:Windows>:$<TARGET_LINKER_FILE:datachannel>>
+        $<$<PLATFORM_ID:Windows>:${OUTPUT_LIB_DIR}/$<TARGET_LINKER_FILE_NAME:datachannel>>
+    
+    # 3. Copy PDB file on Windows for Debug and RelWithDebInfo builds
+    #    PDB files are only generated with MSVC/clang-cl in these configurations
+    COMMAND ${CMAKE_COMMAND} -E $<IF:$<AND:$<PLATFORM_ID:Windows>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<CXX_COMPILER_ID:MSVC,Clang>>,copy_if_different,true>
+        $<$<AND:$<PLATFORM_ID:Windows>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<CXX_COMPILER_ID:MSVC,Clang>>:$<TARGET_PDB_FILE:datachannel>>
+        $<$<AND:$<PLATFORM_ID:Windows>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,$<CXX_COMPILER_ID:MSVC,Clang>>:${OUTPUT_LIB_DIR}/$<TARGET_PDB_FILE_NAME:datachannel>>
+    
+    VERBATIM
+)
+
+# Print configuration message
+message(STATUS "=======================================================")
+message(STATUS "datachannel library artifacts will be copied to:")
+message(STATUS "  ${OUTPUT_LIB_DIR}")
+message(STATUS "=======================================================")
+
+# ============================================================================
+# END OF POST-BUILD COPY COMMANDS
+# ============================================================================
+
+
 install(TARGETS datachannel EXPORT LibDataChannelTargets
 	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
