@@ -12,5 +12,7 @@ compile_commands.json
 /tests
 .DS_Store
 .idea
+/.vs/
+/lib/
 # clangd cache
 .cache
